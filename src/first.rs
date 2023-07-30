@@ -39,6 +39,20 @@ impl List {
     }
 }
 
+impl Drop for List {
+    fn drop(&mut self) {
+        let mut cur_link = mem::replace(&mut self.head, Link::Empty);
+        // `while let` == "do this thing until this pattern doesn't match"
+        while let Link::More(mut boxed_node) = cur_link {
+            cur_link = mem::replace(&mut boxed_node.next, Link::Empty);
+            // boxed_node goes out of scope and gets dropped here;
+            // but its Node's `next` field has been set to Link::Empty
+            // so no unbounded recursion occurs.
+        }
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::List;
 
@@ -47,6 +61,26 @@ mod test {
         let mut list = List::new();
 
         // check empty list behaves right
+        assert_eq!(list.pop(), None);
+
+        // populate list
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        // check normal removal
+        assert_eq!(list.pop(), Some(3));
+        assert_eq!(list.pop(), Some(2));
+
+        // push some more
+        list.push(4);
+        list.push(5);
+
+        assert_eq!(list.pop(), Some(5));
+        assert_eq!(list.pop(), Some(4));
+
+        // check exhaustion
+        assert_eq!(list.pop(), Some(1));
         assert_eq!(list.pop(), None);
     }
 }
